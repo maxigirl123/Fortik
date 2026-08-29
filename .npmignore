@@ -1,0 +1,6 @@
+mcp-publisher
+server.json
+*.mjs
+src/
+tsconfig.json
+.env.example

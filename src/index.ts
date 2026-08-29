@@ -1,8 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { registerVerifyStorefrontTool } from "./tools/verifyStorefront.js";
+import { build402Challenge, verifyAndSettlePayment } from "./x402.js";
 
 function buildServer(): McpServer {
   const server = new McpServer({
@@ -19,13 +20,20 @@ async function runStdio(): Promise<void> {
   await server.connect(transport);
 }
 
+async function x402Guard(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const { paid } = await verifyAndSettlePayment(req.header("X-PAYMENT"));
+  if (!paid) {
+    res.status(402).json(build402Challenge());
+    return;
+  }
+  next();
+}
+
 async function runHttp(): Promise<void> {
   const app = express();
   app.use(express.json());
 
-  app.post("/mcp", async (req, res) => {
-    // Stateless: a fresh server + transport per request avoids request-id
-    // collisions and keeps this trivially horizontally scalable.
+  app.post("/mcp", x402Guard, async (req, res) => {
     const server = buildServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -38,7 +46,7 @@ async function runHttp(): Promise<void> {
 
   const port = parseInt(process.env.PORT ?? "3000", 10);
   app.listen(port, () => {
-    console.error(`storefront-guard MCP server running on :${port}/mcp`);
+    console.error(`storefront-guard MCP+x402 server running on :${port}/mcp`);
   });
 }
 

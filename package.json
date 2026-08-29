@@ -1,7 +1,12 @@
 {
   "name": "storefront-guard-mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "mcpName": "io.github.maxigirl123/storefront-guard",
   "description": "Agent-side merchant verification: checks whether a storefront a shopping agent is about to pay looks like the same legitimate entity it was recently, before the agent commits payment.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxigirl123/Fortik.git"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.maxigirl123/storefront-guard",
+  "description": "Verifies a merchant storefront is legitimate before an AI agent commits payment.",
+  "repository": {
+    "url": "https://github.com/maxigirl123/Fortik",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "storefront-guard-mcp-server",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GOOGLE_SAFE_BROWSING_API_KEY",
+          "description": "Google Safe Browsing API key for scam domain checks. Optional — degrades gracefully if not set.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "SAM_GOV_API_KEY",
+          "description": "SAM.gov API key for US federal exclusions check. Optional — skipped if not set.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "URLHAUS_AUTH_KEY",
+          "description": "URLhaus Auth-Key for malware URL lookups. Optional — degrades gracefully if not set.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

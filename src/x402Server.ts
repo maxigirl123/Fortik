@@ -9,24 +9,10 @@ import { getSamExclusion } from "./services/samGov.js";
 import { getFdaEnforcement } from "./services/fdaEnforcement.js";
 import { getTrancoRank } from "./services/trancoRank.js";
 import { scoreStorefront, computeRecommendation } from "./scoring.js";
-import { fetchWithTimeout } from "./services/httpClient.js";
 import { cache } from "./services/cache.js";
-import { X402_FACILITATOR_URL, ESTABLISHED_DOMAIN_THRESHOLD_DAYS, DEFAULT_CACHE_TTL_SECONDS } from "./constants.js";
+import { ESTABLISHED_DOMAIN_THRESHOLD_DAYS, DEFAULT_CACHE_TTL_SECONDS } from "./constants.js";
+import { build402Challenge, verifyAndSettlePayment } from "./x402.js";
 import type { StorefrontSignals, VerificationResult, CertHistory } from "./types.js";
-
-/**
- * Pay-per-call HTTP endpoint implementing the x402 challenge/response shape:
- *   1. Agent calls POST /verify with no payment -> we return 402 with price
- *   2. Agent signs a payment authorization and retries with X-PAYMENT header
- *   3. We verify + settle the payment via the x402 facilitator, then return
- *      the verification result
- */
-
-const PRICE_USD = process.env.PRICE_USD ?? "0.02";
-const PAY_TO_ADDRESS = process.env.PAY_TO_ADDRESS ?? "0xYOUR_WALLET_ADDRESS_HERE";
-const NETWORK = process.env.X402_NETWORK ?? "base";
-const FACILITATOR_URL =
-  process.env.X402_FACILITATOR_URL ?? X402_FACILITATOR_URL;
 
 const ttlSeconds = parseInt(
   process.env.CACHE_TTL_SECONDS ?? String(DEFAULT_CACHE_TTL_SECONDS),
@@ -127,99 +113,6 @@ async function runVerification(
   };
 
   return { result, fastPath };
-}
-
-// Shared payment requirements object — reused by build402Challenge() and
-// verifyAndSettlePayment() so the facilitator always receives the exact same
-// requirements object that was sent in the 402 challenge.
-const PAYMENT_REQUIREMENTS = {
-  scheme: "exact",
-  network: NETWORK,
-  maxAmountRequired: `$${PRICE_USD}`,
-  payTo: PAY_TO_ADDRESS,
-  resource: "/verify",
-  description: "Storefront legitimacy pre-purchase check"
-} as const;
-
-function build402Challenge() {
-  return {
-    x402Version: 1,
-    accepts: [PAYMENT_REQUIREMENTS]
-  };
-}
-
-interface FacilitatorVerifyResponse {
-  isValid: boolean;
-  invalidReason: string | null;
-}
-
-interface FacilitatorSettleResponse {
-  success: boolean;
-  txHash: string;
-  networkId: string;
-}
-
-/**
- * Verifies the agent's signed payment authorization with the x402 facilitator
- * and, if valid, settles the USDC transfer on-chain.
- *
- * Step 1 — POST to <facilitator>/verify: checks the signed payment header is
- * cryptographically valid and the amount/payee match requirements.
- * Step 2 — POST to <facilitator>/settle: submits the on-chain settlement and
- * returns the transaction hash.
- *
- * Returns { paid: false } on any validation failure or network error so the
- * caller can return 402 rather than propagating a 500.
- */
-async function verifyAndSettlePayment(
-  paymentHeader: string | undefined
-): Promise<{ paid: boolean; txHash?: string }> {
-  if (!paymentHeader) {
-    return { paid: false };
-  }
-
-  const facilitatorBody = {
-    x402Version: 1,
-    paymentHeader,
-    paymentRequirements: PAYMENT_REQUIREMENTS
-  };
-
-  try {
-    // Step 1: verify
-    const verifyRes = await fetchWithTimeout(
-      `${FACILITATOR_URL}/verify`,
-      undefined,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(facilitatorBody)
-      }
-    );
-    if (!verifyRes.ok) return { paid: false };
-
-    const verifyData = (await verifyRes.json()) as FacilitatorVerifyResponse;
-    if (!verifyData.isValid) return { paid: false };
-
-    // Step 2: settle
-    const settleRes = await fetchWithTimeout(
-      `${FACILITATOR_URL}/settle`,
-      undefined,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(facilitatorBody)
-      }
-    );
-    if (!settleRes.ok) return { paid: false };
-
-    const settleData = (await settleRes.json()) as FacilitatorSettleResponse;
-    if (!settleData.success) return { paid: false };
-
-    return { paid: true, txHash: settleData.txHash };
-  } catch {
-    // Network or parse error — return 402, not 500
-    return { paid: false };
-  }
 }
 
 const app = express();
