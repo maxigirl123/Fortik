@@ -1,0 +1,56 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import express from "express";
+import { registerVerifyStorefrontTool } from "./tools/verifyStorefront.js";
+
+function buildServer(): McpServer {
+  const server = new McpServer({
+    name: "storefront-guard-mcp-server",
+    version: "0.1.0"
+  });
+  registerVerifyStorefrontTool(server);
+  return server;
+}
+
+async function runStdio(): Promise<void> {
+  const server = buildServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+}
+
+async function runHttp(): Promise<void> {
+  const app = express();
+  app.use(express.json());
+
+  app.post("/mcp", async (req, res) => {
+    // Stateless: a fresh server + transport per request avoids request-id
+    // collisions and keeps this trivially horizontally scalable.
+    const server = buildServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true
+    });
+    res.on("close", () => transport.close());
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  });
+
+  const port = parseInt(process.env.PORT ?? "3000", 10);
+  app.listen(port, () => {
+    console.error(`storefront-guard MCP server running on :${port}/mcp`);
+  });
+}
+
+const transport = process.env.TRANSPORT ?? "stdio";
+if (transport === "http") {
+  runHttp().catch((err) => {
+    console.error("Server error:", err);
+    process.exit(1);
+  });
+} else {
+  runStdio().catch((err) => {
+    console.error("Server error:", err);
+    process.exit(1);
+  });
+}
