@@ -1,7 +1,7 @@
 import { X402_FACILITATOR_URL } from "./constants.js";
 import { fetchWithTimeout } from "./services/httpClient.js";
 
-const PRICE_USD = process.env.PRICE_USD ?? "0.02";
+const PRICE_USD = process.env.PRICE_USD ?? "0.01";
 const PAY_TO_ADDRESS = process.env.PAY_TO_ADDRESS ?? "0xYOUR_WALLET_ADDRESS_HERE";
 const NETWORK = process.env.X402_NETWORK ?? "base";
 const FACILITATOR_URL = process.env.X402_FACILITATOR_URL ?? X402_FACILITATOR_URL;

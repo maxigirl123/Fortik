@@ -5,17 +5,17 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { registerVerifyStorefrontTool } from "./tools/verifyStorefront.js";
 import { build402Challenge, verifyAndSettlePayment } from "./x402.js";
 
-function buildServer(): McpServer {
+function buildMcpServer(): McpServer {
   const server = new McpServer({
     name: "storefront-guard-mcp-server",
-    version: "0.1.0"
+    version: "0.3.0"
   });
   registerVerifyStorefrontTool(server);
   return server;
 }
 
-async function runStdio(): Promise<void> {
-  const server = buildServer();
+export async function startMcpStdio(): Promise<void> {
+  const server = buildMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
@@ -29,12 +29,12 @@ async function x402Guard(req: Request, res: Response, next: NextFunction): Promi
   next();
 }
 
-async function runHttp(): Promise<void> {
+export function createMcpApp(): express.Express {
   const app = express();
   app.use(express.json());
 
   app.post("/mcp", x402Guard, async (req, res) => {
-    const server = buildServer();
+    const server = buildMcpServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true
@@ -44,20 +44,18 @@ async function runHttp(): Promise<void> {
     await transport.handleRequest(req, res, req.body);
   });
 
-  const port = parseInt(process.env.PORT ?? "3000", 10);
-  app.listen(port, () => {
-    console.error(`storefront-guard MCP+x402 server running on :${port}/mcp`);
-  });
+  return app;
 }
 
+// Standalone entry point
 const transport = process.env.TRANSPORT ?? "stdio";
 if (transport === "http") {
-  runHttp().catch((err) => {
-    console.error("Server error:", err);
-    process.exit(1);
+  const port = parseInt(process.env.MCP_PORT ?? process.env.PORT ?? "3000", 10);
+  createMcpApp().listen(port, () => {
+    console.error(`storefront-guard MCP+x402 server running on :${port}/mcp`);
   });
 } else {
-  runStdio().catch((err) => {
+  startMcpStdio().catch((err) => {
     console.error("Server error:", err);
     process.exit(1);
   });

@@ -1,6 +1,6 @@
 {
   "name": "storefront-guard-mcp-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "mcpName": "io.github.maxigirl123/storefront-guard",
   "description": "Agent-side merchant verification: checks whether a storefront a shopping agent is about to pay looks like the same legitimate entity it was recently, before the agent commits payment.",
   "repository": {
@@ -15,8 +15,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:all": "node dist/server.js",
     "start:http": "cross-env TRANSPORT=http node dist/index.js",
     "start:x402": "node dist/x402Server.js",
+    "start:rest": "node dist/restServer.js",
     "dev": "tsc --watch"
   },
   "engines": {

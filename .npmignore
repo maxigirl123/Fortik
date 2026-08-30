@@ -3,4 +3,6 @@ server.json
 *.mjs
 src/
 tsconfig.json
-.env.example
+.env
+.env.*
+*.jsonl
