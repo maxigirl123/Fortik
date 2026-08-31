@@ -7,10 +7,9 @@ free public data sources.
 This is the mirror image of merchant-side agent-verification protocols like
 Visa's Trusted Agent Protocol: those let a *merchant* confirm an incoming
 *agent* is legitimate. This tool lets the *agent* confirm the *merchant* is
-legitimate before committing payment - a gap that, as of this writing, no
-major payment network or fraud-prevention vendor has shipped a fix for.
+legitimate before committing payment.
 
-## What v1 actually checks
+## What it checks
 
 - **Domain registration age & recent changes** — via free public RDAP
   lookups. A domain registered days ago, or one whose registration data
@@ -20,8 +19,12 @@ major payment network or fraud-prevention vendor has shipped a fix for.
   otherwise long-established domain can indicate a takeover or hosting
   change, even when the domain itself looks old and trustworthy.
 - **HTTPS validity** — does the site currently serve a valid cert at all.
-- **Known-scam blocklist** — v1 ships a placeholder local list only. See
-  "Before charging real money" below.
+- **Known-scam blocklist** — URLhaus and Google Safe Browsing.
+- **Corporate registration** — US entity lookup via OpenCorporates.
+- **Legal name verification** — GLEIF entity registry cross-check.
+- **Web traffic rank** — Tranco top-1M ranking.
+- **Federal exclusions** — SAM.gov debarment check.
+- **FDA enforcement** — corroborating signal when other risks are present.
 
 Every deduction from the trust score comes with a plain-English reason in
 the `reasons` array — this is deliberately an explainable heuristic, not a
@@ -29,73 +32,89 @@ black-box model.
 
 ## Setup
 
-Requires Node.js 18+ (for native `fetch`).
+Requires Node.js 18+.
 
 ```bash
 npm install
 npm run build
 ```
 
+Copy `.env.example` to `.env` and fill in your keys.
+
 ## Running it
 
-**As a local MCP server (stdio)** — for installing directly into an agent
-framework's tool config:
+**As a local MCP server (stdio):**
 ```bash
 npm start
 ```
 
-**As a remote MCP server (streamable HTTP)**:
+**As a remote MCP server (streamable HTTP) with x402 payment:**
 ```bash
 npm run start:http
 # POST http://localhost:3000/mcp
 ```
 
-**As a pay-per-call x402 HTTP API**:
+**As a pay-per-call x402 HTTP API:**
 ```bash
 npm run start:x402
 # POST http://localhost:4021/verify   { "domain": "example-shop.com" }
 ```
 
-## Before charging real money on this, do these things
+**As a REST API (API key auth):**
+```bash
+npm run start:rest
+# POST http://localhost:4022/verify   { "domain": "example-shop.com" }
+# Header: X-API-KEY: your-key
+```
 
-This is a v1 scaffold, not a finished fraud product. Specifically:
+**All three servers at once:**
+```bash
+npm run start:all
+# MCP:  http://localhost:3000/mcp
+# x402: http://localhost:4021/verify
+# REST: http://localhost:4022/verify
+```
 
-1. **Wire the blocklist to a real feed.** `src/services/blocklist.ts`
-   defines a `BlocklistProvider` interface with one placeholder
-   implementation. Swap in URLhaus, Google Safe Browsing, PhishTank, or a
-   licensed dataset — this is the single highest-leverage upgrade.
-2. **Wire real x402 payment settlement.** `src/x402Server.ts` has a
-   `verifyAndSettlePayment` stub that currently accepts any non-empty
-   `X-PAYMENT` header as paid. Replace it with a real call to an x402
-   facilitator's verify/settle endpoints before this touches real USDC.
-3. **Set your real payout address.** `PAY_TO_ADDRESS` env var — currently
-   a placeholder.
-4. **Consider a historical snapshot store.** The biggest accuracy upgrade
-   beyond v1: store each domain's signals over time so "changed vs. what we
-   saw last week" becomes a direct diff instead of an inference from RDAP/
-   cert timestamps alone.
-5. **Get it in front of real agent traffic.** A perfect scorer nobody calls
-   earns nothing — see distribution notes from the product discussion this
-   was scoped in.
+## Feedback endpoint
+
+Submit outcome data after a transaction to help build training data for future ML scoring:
+
+```bash
+POST http://localhost:4022/feedback
+Header: X-API-KEY: your-key
+Body: { "domain": "example-shop.com", "outcome": "legit" | "scam" }
+```
 
 ## How to use the recommendation field
 
 Every verification result includes a top-level `recommendation` string alongside the
-numeric `trustScore`. It is the primary action signal — agents should branch on it
-rather than implementing their own threshold logic against the raw score.
+numeric `trustScore`. Agents should branch on it rather than implementing their own
+threshold logic against the raw score.
 
 | Value | Suggested agent behavior |
 |---|---|
-| `proceed` | Complete the transaction silently. Trust score is in the low-risk range **and** confidence is high — no user confirmation needed. |
-| `pause_for_confirmation` | Stop before paying and show `recommendationReason` to the user. This fires when the score is borderline (40–69) **or** when not enough signals could be resolved to be confident in a higher score. The user should decide. |
-| `do_not_proceed` | Block the transaction and **actively notify** the user — do not fail silently. This fires on a known-scam domain match or a critically low trust score (< 40). The user should know their agent almost paid a flagged storefront. |
+| `proceed` | Complete the transaction silently. Trust score is low-risk with high confidence. |
+| `pause_for_confirmation` | Stop before paying and show `recommendationReason` to the user. |
+| `do_not_proceed` | Block the transaction and actively notify the user — do not fail silently. |
 
-`recommendationReason` is a one-line plain-English explanation that is safe to show
-directly to users in a confirmation dialog or notification.
+`recommendationReason` is a one-line plain-English explanation safe to show directly to users.
 
-## Pricing starting point
+## Pricing
 
-$0.02/call is a reasonable v1 anchor — cheap enough that an agent doesn't
-think twice before a purchase of any real size, in the same range as
-ForgeMesh's own per-call pricing for comparable signal/attestation tools.
-Revisit once you know your actual cost per call for the real blocklist feed.
+$0.01/call via x402. Set your wallet address in `PAY_TO_ADDRESS` and network in `X402_NETWORK` (default: `base`).
+
+## Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `PAY_TO_ADDRESS` | Yes (x402) | Your wallet address for USDC payments |
+| `X402_NETWORK` | No | Blockchain network (default: `base`) |
+| `PRICE_USD` | No | Per-call price (default: `0.01`) |
+| `API_KEYS` | Yes (REST) | Comma-separated valid API keys |
+| `GOOGLE_SAFE_BROWSING_API_KEY` | No | Degrades gracefully if unset |
+| `SAM_GOV_API_KEY` | No | Degrades gracefully if unset |
+| `URLHAUS_AUTH_KEY` | No | Degrades gracefully if unset |
+| `FEEDBACK_LOG` | No | Path for feedback JSONL log (default: `feedback.jsonl`) |
+| `MCP_PORT` | No | MCP server port (default: `3000`) |
+| `X402_PORT` | No | x402 server port (default: `4021`) |
+| `REST_PORT` | No | REST API port (default: `4022`) |
