@@ -1,5 +1,5 @@
 {
-  "name": "fortik",
+  "name": "@maxigirl123/fortik",
   "version": "0.3.2",
   "mcpName": "io.github.maxigirl123/fortik",
   "description": "Real-time merchant verification for agentic commerce. One call before the payment settles — checks storefront legitimacy so AI agents don't pay fraudulent merchants.",
@@ -11,7 +11,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "fortik": "dist/index.js"
+    "@maxigirl123/fortik": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",

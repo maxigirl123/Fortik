@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "fortik",
+      "identifier": "@maxigirl123/fortik",
       "version": "0.3.2",
       "transport": {
         "type": "stdio"
