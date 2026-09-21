@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.maxigirl123/storefront-guard",
-  "description": "Verifies a merchant storefront is legitimate before an AI agent commits payment.",
+  "name": "io.github.maxigirl123/fortik",
+  "description": "Real-time merchant verification for agentic commerce. One call before the payment settles — checks storefront legitimacy so AI agents don't pay fraudulent merchants.",
   "repository": {
     "url": "https://github.com/maxigirl123/Fortik",
     "source": "github"
@@ -10,7 +10,7 @@
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "storefront-guard-mcp-server",
+      "identifier": "fortik",
       "version": "0.3.2",
       "transport": {
         "type": "stdio"

@@ -1,12 +1,14 @@
-# storefront-guard-mcp-server
+# Fortik
 
-Agent-side merchant verification. A shopping agent calls `verify_storefront`
-with a domain **before** paying, and gets back a trust score built from
-free public data sources.
+**Real-time merchant verification for agentic commerce.** A shopping agent calls `verify_storefront` with a domain **before** paying, and gets back a trust score with a plain-English verdict the agent can act on — in under two seconds.
+
+Fortik is the trust check AI shopping agents run before checkout. It doesn't ask merchants to register in advance — it gathers evidence directly, in the moment, from independent public sources.
+
+**[fortik.io](https://fortik.io)**
 
 This is the mirror image of merchant-side agent-verification protocols like
 Visa's Trusted Agent Protocol: those let a *merchant* confirm an incoming
-*agent* is legitimate. This tool lets the *agent* confirm the *merchant* is
+*agent* is legitimate. Fortik lets the *agent* confirm the *merchant* is
 legitimate before committing payment.
 
 ## What it checks

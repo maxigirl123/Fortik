@@ -7,7 +7,7 @@ import { build402Challenge, verifyAndSettlePayment } from "./x402.js";
 
 function buildMcpServer(): McpServer {
   const server = new McpServer({
-    name: "storefront-guard-mcp-server",
+    name: "fortik",
     version: "0.3.0"
   });
   registerVerifyStorefrontTool(server);
@@ -52,7 +52,7 @@ const transport = process.env.TRANSPORT ?? "stdio";
 if (transport === "http") {
   const port = parseInt(process.env.MCP_PORT ?? process.env.PORT ?? "3000", 10);
   createMcpApp().listen(port, () => {
-    console.error(`storefront-guard MCP+x402 server running on :${port}/mcp`);
+    console.error(`Fortik MCP+x402 server running on :${port}/mcp`);
   });
 } else {
   startMcpStdio().catch((err) => {
